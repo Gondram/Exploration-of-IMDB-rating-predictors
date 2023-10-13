@@ -152,3 +152,10 @@ cython_debug/
 #.idea/
 Data/title.basics.tsv.gz
 Data/title.ratings.tsv.gz
+Data/final_tmdb_data_2000.csv
+Data/final_tmdb_data_2003.csv
+Data/final_tmdb_data_2004.csv
+Data/final_tmdb_data_2005.csv
+Data/final_tmdb_data_2006.csv
+Data/final_tmdb_data_2007.csv
+Data/final_tmdb_data_2008.csv
