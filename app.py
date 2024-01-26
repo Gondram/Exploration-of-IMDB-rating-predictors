@@ -16,25 +16,30 @@ from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import numpy as np
 
+os.environ["PYTHONIOENCODING"] = "utf-8"
+
 # load data
 with open('config/filepaths.json') as f:
     FPATHS = json.load(f)
 
-# Define the load train or test data function with caching
+# Define the load train or test data function
+@st.cache_resource
+def load_tf_dataset(fpath):
+    ds = tf.data.Dataset.load(fpath)
+    return ds
+
 @st.cache_data
 def load_Xy_data(fpath):
     return joblib.load(fpath)
-    
+
 @st.cache_resource
 def load_model_ml(fpath):
     return joblib.load(fpath)
 
-@st.cache_data
 def load_network(fpath):
     model = tf.keras.models.load_model(fpath)
     return model
 
-@st.cache_data
 def load_lookup(fpath=FPATHS['data']['ml']['target_lookup']):
     return joblib.load(fpath)
 
@@ -55,6 +60,14 @@ def predict_decode_deep(X_to_pred, network,lookup_dict,
     class_name = lookup_dict[pred_class[0]]
 
     return class_name
+
+def make_prediction(X_to_pred, pipe, lookup_dict):
+    # Get Prediction
+    pred_class = ml_pipe.predict([X_to_pred])[0]
+    # Decode label
+    pred_class = lookup_dict[pred_class]
+    return pred_class
+
 
 
 def classification_metrics_streamlit(y_true, y_pred, label='',
@@ -134,16 +147,14 @@ def classification_metrics_streamlit_tensorflow(model,X_train=None, y_train=None
                                                        class_names=class_names)
     return report, conf_mat
 
+#loading train/test data
 X_train, y_train = load_Xy_data(fpath=FPATHS['data']['ml']['train'])
-
 X_test, y_test = load_Xy_data(fpath=FPATHS['data']['ml']['test'])
 
-def get_X_to_predict():
-    X_to_predict = pd.DataFrame({'bedrooms': selected_beds,
-                             'bathrooms': selected_baths, 
-                             'sqft_lot': selected_lot},
-                               index=['House'])
-    return X_to_predict
+fpath_train_ds = FPATHS['data']['tf']['train_tf']
+train_ds = load_tf_dataset(fpath_train_ds)
+fpath_test_ds = FPATHS['data']['tf']['test_tf']
+test_ds = load_tf_dataset(fpath_test_ds)
 
 ## Title and Markdown subheader
 st.title('IMDB Rating Prediction')
@@ -156,25 +167,25 @@ s_model = st.sidebar.selectbox('Model',['ml','nlp'])
 
 X_to_pred = st.sidebar.text_input('Insert Text', value = 'Great Film!')
 
-# Load model
-model = load_model_ml(fpath = FPATHS['models'][s_model])
+Xpred = pd.DataFrame({'User Entry': X_to_pred}, index=['entry'])
+
+Xs = pd.Series(X_to_pred)
 
 if st.button("Generate"):
     if s_model == 'nlp':
-        
-        fpath_model = FPATHS['models']['nlp'] # Permissions issue, I just gotta get this working
-        # fpath_model = 'models\nlp-pipe.keras'
-        best_network = load_network(fpath_model)
+        nlp_fpath = FPATHS['models']['nlp']
+        best_network = load_network(nlp_fpath)
         target_lookup = load_lookup()
         pred_class_name = predict_decode_deep(X_to_pred, best_network,target_lookup)
-        st.markdown(f"##### Neural Network Predicted category:  {pred_class_name}")
+        st.markdown(f"##### NLP Predicted Category:  {pred_class_name}")
         
     else:
-        fpath_model = FPATHS['models']['ml']
-
-    new_pred = fn.get_prediction(model, X_to_pred)
-    
-    st.markdown(f"> #### {s_model} Model Predicted Rating = {new_pred}")
+        ml_fpath = FPATHS['models']['ml']
+        ml_pipe = load_model_ml(ml_fpath)
+        target_lookup = load_lookup()
+        # new_pred = ml_pipe.predict(Xs)[0]
+        pred_class = make_prediction(X_to_pred, ml_pipe, target_lookup)
+        st.markdown(f"##### ML Predicted Category:  {pred_class}")
     
 else:
     st.empty()
@@ -190,7 +201,11 @@ show_test = col2.checkbox("Show test data.", value=True)
 
 if s_model == 'nlp':
     if st.button("Show Evaluation."):
-        with st.spinner("Please wait while the neural network is evaluated..."):
+        with st.spinner("Please wait while the nlp model is evaluated..."):
+            
+            nlp_fpath = FPATHS['models']['nlp']
+            best_network = load_network(nlp_fpath)
+            
             if show_train == True:
                 # Display training data results
                 report_str, conf_mat = classification_metrics_streamlit_tensorflow(best_network,label='Training Data',
@@ -214,7 +229,7 @@ if s_model == 'nlp':
 
 else: 
     if st.button("Show Evaluation."):
-        with st.spinner("Please wait while the neural network is evaluated..."):
+        with st.spinner("Please wait while the ml model is evaluated..."):
             st.empty()
 
 

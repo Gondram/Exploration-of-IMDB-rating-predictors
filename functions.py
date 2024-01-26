@@ -13,11 +13,6 @@ from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.model_selection import GridSearchCV
 from imblearn.under_sampling import RandomUnderSampler
 
-# Random Seeds
-tf.keras.utils.set_random_seed(42)
-tf.random.set_seed(42)
-np.random.seed(42)
-
 # Enable Deterministic Operations Function
 tf.config.experimental.enable_op_determinism()
 
